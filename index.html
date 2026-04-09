@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>息止めタイマー</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 32px;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+      font-weight: 400;
+      color: #7d8590;
+      letter-spacing: 0.1em;
+    }
+
+    /* Timer display */
+    .timer-ring {
+      position: relative;
+      width: 260px;
+      height: 260px;
+    }
+
+    .timer-ring svg {
+      transform: rotate(-90deg);
+    }
+
+    .ring-bg {
+      fill: none;
+      stroke: #21262d;
+      stroke-width: 12;
+    }
+
+    .ring-progress {
+      fill: none;
+      stroke: #58a6ff;
+      stroke-width: 12;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.1s linear, stroke 0.3s;
+    }
+
+    .ring-progress.warning {
+      stroke: #f78166;
+    }
+
+    .timer-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .elapsed {
+      font-size: 4rem;
+      font-weight: 200;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .elapsed-label {
+      font-size: 0.75rem;
+      color: #7d8590;
+      margin-top: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    /* Status */
+    .status-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-height: 56px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #3d444d;
+      transition: background 0.3s;
+    }
+
+    .status-dot.listening { background: #3fb950; animation: pulse 1.5s infinite; }
+    .status-dot.running   { background: #58a6ff; animation: pulse 0.8s infinite; }
+    .status-dot.error     { background: #f78166; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-text {
+      font-size: 0.875rem;
+      color: #7d8590;
+    }
+
+    .transcript {
+      font-size: 0.8rem;
+      color: #4c5159;
+      max-width: 280px;
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    /* Settings */
+    .settings {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 16px 24px;
+    }
+
+    .settings label {
+      font-size: 0.875rem;
+      color: #7d8590;
+    }
+
+    .settings input[type="number"] {
+      width: 72px;
+      padding: 6px 10px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 1rem;
+      text-align: center;
+    }
+
+    .settings input[type="number"]:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
+
+    .settings span {
+      font-size: 0.875rem;
+      color: #7d8590;
+    }
+
+    /* Buttons */
+    .buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    button {
+      padding: 10px 24px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.97); }
+
+    .btn-start {
+      background: #238636;
+      color: #fff;
+    }
+
+    .btn-stop {
+      background: #da3633;
+      color: #fff;
+    }
+
+    .btn-mic {
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+    }
+
+    .btn-mic.active {
+      background: #1c3f1e;
+      border-color: #3fb950;
+      color: #3fb950;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Keyword hint */
+    .hints {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .hint-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+
+    .hint-box h3 {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .hint-box.start h3 { color: #3fb950; }
+    .hint-box.stop  h3 { color: #f78166; }
+
+    .hint-box ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hint-box li {
+      font-size: 0.8rem;
+      color: #7d8590;
+    }
+
+    /* Countdown overlay */
+    .countdown-flash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8rem;
+      font-weight: 100;
+      color: #fff;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s;
+      background: rgba(88, 166, 255, 0.08);
+    }
+
+    .countdown-flash.show {
+      opacity: 1;
+    }
+
+    .countdown-flash.last {
+      color: #f78166;
+      background: rgba(247, 129, 102, 0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>BREATH HOLD TIMER</h1>
+
+  <div class="timer-ring">
+    <svg width="260" height="260" viewBox="0 0 260 260">
+      <circle class="ring-bg" cx="130" cy="130" r="114"/>
+      <circle class="ring-progress" id="ringProgress" cx="130" cy="130" r="114"
+        stroke-dasharray="716.28" stroke-dashoffset="716.28"/>
+    </svg>
+    <div class="timer-center">
+      <div class="elapsed" id="elapsedDisplay">0.0</div>
+      <div class="elapsed-label">秒</div>
+    </div>
+  </div>
+
+  <div class="status-area">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="status-dot" id="statusDot"></div>
+      <div class="status-text" id="statusText">マイクを開始してください</div>
+    </div>
+    <div class="transcript" id="transcriptDisplay"></div>
+  </div>
+
+  <div class="settings">
+    <label for="targetInput">設定時間</label>
+    <input type="number" id="targetInput" value="13" min="1" max="999">
+    <span>秒</span>
+  </div>
+
+  <div class="buttons">
+    <button class="btn-mic" id="btnMic" onclick="toggleMic()">マイク ON</button>
+    <button class="btn-start" onclick="startTimer()">スタート</button>
+    <button class="btn-stop" onclick="stopTimer()">ストップ</button>
+  </div>
+
+  <div class="hints">
+    <div class="hint-box start">
+      <h3>スタート</h3>
+      <ul>
+        <li>息止めて</li>
+        <li>息を止めてください</li>
+        <li>止めて</li>
+        <li>インフレーション</li>
+      </ul>
+    </div>
+    <div class="hint-box stop">
+      <h3>ストップ＆リセット</h3>
+      <ul>
+        <li>楽にして</li>
+        <li>デフ</li>
+        <li>デフレーション</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="countdown-flash" id="countdownFlash"></div>
+
+  <script>
+    // ── State ───────────────────────────────────────────────────────────────
+    let isRunning = false;
+    let startTime = null;
+    let rafId = null;
+    let announcedSeconds = new Set();
+    let micActive = false;
+    let recognition = null;
+
+    const CIRCUMFERENCE = 2 * Math.PI * 114; // 716.28
+
+    // ── DOM ─────────────────────────────────────────────────────────────────
+    const elapsedDisplay  = document.getElementById('elapsedDisplay');
+    const ringProgress    = document.getElementById('ringProgress');
+    const statusDot       = document.getElementById('statusDot');
+    const statusText      = document.getElementById('statusText');
+    const transcriptDiv   = document.getElementById('transcriptDisplay');
+    const targetInput     = document.getElementById('targetInput');
+    const btnMic          = document.getElementById('btnMic');
+    const countdownFlash  = document.getElementById('countdownFlash');
+
+    // ── TTS ─────────────────────────────────────────────────────────────────
+    // iOSはユーザー操作なしにspeakを呼ぶとブロックされる。
+    // ボタンタップ時に無音utteranceで一度アンロックしておく。
+    let speechUnlocked = false;
+
+    function unlockSpeech() {
+      if (speechUnlocked) return;
+      speechUnlocked = true;
+      const silent = new SpeechSynthesisUtterance(' ');
+      silent.volume = 0;
+      silent.lang   = 'ja-JP';
+      window.speechSynthesis.speak(silent);
+    }
+
+    function speak(text) {
+      // iOSではspeechSynthesisがスタックすることがある → resumeで復帰
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang  = 'ja-JP';
+      utter.rate  = 1.0;
+      utter.pitch = 1.0;
+      window.speechSynthesis.speak(utter);
+    }
+
+    // ── Timer ────────────────────────────────────────────────────────────────
+    function getTarget() {
+      return Math.max(1, parseInt(targetInput.value) || 13);
+    }
+
+    function startTimer() {
+      unlockSpeech();
+      if (isRunning) return;
+      isRunning     = true;
+      startTime     = performance.now();
+      announcedSeconds = new Set();
+      setStatus('running', '息止め中…');
+      loop();
+    }
+
+    function stopTimer() {
+      unlockSpeech();
+      if (!isRunning && startTime === null) return;
+      isRunning = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId     = null;
+      startTime = null;
+      announcedSeconds = new Set();
+      elapsedDisplay.textContent = '0.0';
+      ringProgress.style.strokeDashoffset = CIRCUMFERENCE;
+      ringProgress.classList.remove('warning');
+      hideFlash();
+      setStatus(micActive ? 'listening' : '', micActive ? '音声認識中' : 'マイクを開始してください');
+    }
+
+    function loop() {
+      if (!isRunning) return;
+      const elapsed = (performance.now() - startTime) / 1000;
+      const target  = getTarget();
+      const sec     = Math.floor(elapsed);
+
+      // Display
+      elapsedDisplay.textContent = elapsed.toFixed(1);
+
+      // Ring progress
+      const progress = Math.min(elapsed / target, 1);
+      const offset   = CIRCUMFERENCE * (1 - progress);
+      ringProgress.style.strokeDashoffset = offset;
+
+      // Color warning in last 3 s
+      if (elapsed >= target - 3) {
+        ringProgress.classList.add('warning');
+      } else {
+        ringProgress.classList.remove('warning');
+      }
+
+      // Countdown announcement: from (target-3) up to target
+      if (elapsed >= target - 3 && sec <= target) {
+        if (!announcedSeconds.has(sec)) {
+          announcedSeconds.add(sec);
+          speak(String(sec));
+          showFlash(sec, sec === target);
+        }
+      }
+
+      rafId = requestAnimationFrame(loop);
+    }
+
+    // ── Flash ────────────────────────────────────────────────────────────────
+    let flashTimeout = null;
+
+    function showFlash(num, isLast) {
+      if (flashTimeout) clearTimeout(flashTimeout);
+      countdownFlash.textContent = num;
+      countdownFlash.classList.toggle('last', isLast);
+      countdownFlash.classList.add('show');
+      flashTimeout = setTimeout(hideFlash, 700);
+    }
+
+    function hideFlash() {
+      countdownFlash.classList.remove('show');
+    }
+
+    // ── Status ───────────────────────────────────────────────────────────────
+    function setStatus(state, text) {
+      statusDot.className  = 'status-dot ' + (state || '');
+      statusText.textContent = text;
+    }
+
+    // ── Speech Recognition ───────────────────────────────────────────────────
+    const START_KEYWORDS = ['息止めて', '息を止めて', '止めて', 'インフレーション', '止め'];
+    const STOP_KEYWORDS  = ['楽にして', 'デフ', 'デフレーション', '楽に'];
+
+    function initRecognition() {
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        setStatus('error', '音声認識非対応のブラウザです (Chrome推奨)');
+        return null;
+      }
+
+      const r = new SpeechRecognition();
+      r.lang        = 'ja-JP';
+      r.continuous  = true;
+      r.interimResults = true;
+
+      r.onstart = () => {
+        setStatus('listening', '音声認識中');
+      };
+
+      r.onresult = (e) => {
+        let transcript = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          transcript += e.results[i][0].transcript;
+        }
+        transcriptDiv.textContent = transcript;
+
+        // Check keywords
+        if (matchAny(transcript, START_KEYWORDS)) {
+          if (!isRunning) startTimer();
+        } else if (matchAny(transcript, STOP_KEYWORDS)) {
+          if (isRunning) stopTimer();
+        }
+      };
+
+      r.onerror = (e) => {
+        if (e.error === 'no-speech') return; // ignore silence
+        setStatus('error', 'エラー: ' + e.error);
+      };
+
+      r.onend = () => {
+        // Auto-restart if mic should be active
+        if (micActive) {
+          try { r.start(); } catch (_) {}
+        } else {
+          setStatus('', 'マイクを開始してください');
+        }
+      };
+
+      return r;
+    }
+
+    function matchAny(text, keywords) {
+      return keywords.some(kw => text.includes(kw));
+    }
+
+    function toggleMic() {
+      unlockSpeech(); // iOSアンロック：必ずユーザー操作の中で呼ぶ
+      if (!micActive) {
+        recognition = initRecognition();
+        if (!recognition) return;
+        micActive = true;
+        btnMic.textContent = 'マイク OFF';
+        btnMic.classList.add('active');
+        try { recognition.start(); } catch (_) {}
+      } else {
+        micActive = false;
+        btnMic.textContent = 'マイク ON';
+        btnMic.classList.remove('active');
+        if (recognition) { recognition.abort(); recognition = null; }
+        if (!isRunning) setStatus('', 'マイクを開始してください');
+      }
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    ringProgress.style.strokeDasharray  = CIRCUMFERENCE;
+    ringProgress.style.strokeDashoffset = CIRCUMFERENCE;
+  </script>
+</body>
+</html>
