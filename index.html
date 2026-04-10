@@ -16,7 +16,7 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      gap: 32px;
+      gap: 28px;
       padding: 24px;
     }
 
@@ -34,9 +34,7 @@
       height: 260px;
     }
 
-    .timer-ring svg {
-      transform: rotate(-90deg);
-    }
+    .timer-ring svg { transform: rotate(-90deg); }
 
     .ring-bg {
       fill: none;
@@ -52,9 +50,7 @@
       transition: stroke-dashoffset 0.1s linear, stroke 0.3s;
     }
 
-    .ring-progress.warning {
-      stroke: #f78166;
-    }
+    .ring-progress.warning { stroke: #f78166; }
 
     .timer-center {
       position: absolute;
@@ -72,12 +68,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .elapsed-label {
-      font-size: 0.75rem;
-      color: #7d8590;
-      margin-top: 4px;
-      letter-spacing: 0.05em;
-    }
+    .elapsed-label { font-size: 0.75rem; color: #7d8590; margin-top: 4px; letter-spacing: 0.05em; }
 
     /* Status */
     .status-area {
@@ -105,20 +96,10 @@
       50% { opacity: 0.4; }
     }
 
-    .status-text {
-      font-size: 0.875rem;
-      color: #7d8590;
-    }
+    .status-text { font-size: 0.875rem; color: #7d8590; }
+    .transcript { font-size: 0.8rem; color: #4c5159; max-width: 280px; text-align: center; min-height: 1.2em; }
 
-    .transcript {
-      font-size: 0.8rem;
-      color: #4c5159;
-      max-width: 280px;
-      text-align: center;
-      min-height: 1.2em;
-    }
-
-    /* Settings */
+    /* Settings row */
     .settings {
       display: flex;
       align-items: center;
@@ -129,10 +110,7 @@
       padding: 16px 24px;
     }
 
-    .settings label {
-      font-size: 0.875rem;
-      color: #7d8590;
-    }
+    .settings label { font-size: 0.875rem; color: #7d8590; }
 
     .settings input[type="number"] {
       width: 72px;
@@ -145,21 +123,11 @@
       text-align: center;
     }
 
-    .settings input[type="number"]:focus {
-      outline: none;
-      border-color: #58a6ff;
-    }
-
-    .settings span {
-      font-size: 0.875rem;
-      color: #7d8590;
-    }
+    .settings input[type="number"]:focus { outline: none; border-color: #58a6ff; }
+    .settings span { font-size: 0.875rem; color: #7d8590; }
 
     /* Buttons */
-    .buttons {
-      display: flex;
-      gap: 12px;
-    }
+    .buttons { display: flex; gap: 12px; }
 
     button {
       padding: 10px 24px;
@@ -172,15 +140,8 @@
 
     button:active { transform: scale(0.97); }
 
-    .btn-start {
-      background: #238636;
-      color: #fff;
-    }
-
-    .btn-stop {
-      background: #da3633;
-      color: #fff;
-    }
+    .btn-start { background: #238636; color: #fff; }
+    .btn-stop  { background: #da3633; color: #fff; }
 
     .btn-mic {
       background: #21262d;
@@ -194,48 +155,117 @@
       color: #3fb950;
     }
 
-    button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    /* Keyword hint */
-    .hints {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+    /* Keyword editor */
+    .keyword-section {
       width: 100%;
       max-width: 420px;
     }
 
-    .hint-box {
+    .keyword-toggle {
+      width: 100%;
       background: #161b22;
       border: 1px solid #30363d;
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 12px 16px;
+      color: #7d8590;
+      font-size: 0.875rem;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    .hint-box h3 {
+    .keyword-toggle:active { transform: scale(0.99); }
+
+    .keyword-toggle .arrow { transition: transform 0.2s; }
+    .keyword-toggle.open .arrow { transform: rotate(180deg); }
+
+    .keyword-panel {
+      display: none;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      padding: 16px;
+      gap: 16px;
+      flex-direction: column;
+    }
+
+    .keyword-panel.open { display: flex; }
+
+    .kw-group h3 {
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
-    .hint-box.start h3 { color: #3fb950; }
-    .hint-box.stop  h3 { color: #f78166; }
+    .kw-group.start h3 { color: #3fb950; }
+    .kw-group.stop  h3 { color: #f78166; }
 
-    .hint-box ul {
-      list-style: none;
+    .tag-list {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+      min-height: 28px;
     }
 
-    .hint-box li {
+    .tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
       font-size: 0.8rem;
-      color: #7d8590;
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #e6edf3;
     }
+
+    .tag-remove {
+      background: none;
+      border: none;
+      color: #7d8590;
+      cursor: pointer;
+      padding: 0;
+      font-size: 0.9rem;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .tag-remove:hover { color: #f78166; }
+    .tag-remove:active { transform: none; }
+
+    .kw-add {
+      display: flex;
+      gap: 8px;
+    }
+
+    .kw-add input {
+      flex: 1;
+      padding: 6px 10px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 0.85rem;
+    }
+
+    .kw-add input:focus { outline: none; border-color: #58a6ff; }
+
+    .kw-add button {
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      border-radius: 6px;
+    }
+
+    .kw-add button:hover { border-color: #58a6ff; }
 
     /* Countdown overlay */
     .countdown-flash {
@@ -253,14 +283,8 @@
       background: rgba(88, 166, 255, 0.08);
     }
 
-    .countdown-flash.show {
-      opacity: 1;
-    }
-
-    .countdown-flash.last {
-      color: #f78166;
-      background: rgba(247, 129, 102, 0.1);
-    }
+    .countdown-flash.show  { opacity: 1; }
+    .countdown-flash.last  { color: #f78166; background: rgba(247, 129, 102, 0.1); }
   </style>
 </head>
 <body>
@@ -299,53 +323,132 @@
     <button class="btn-stop" onclick="stopTimer()">ストップ</button>
   </div>
 
-  <div class="hints">
-    <div class="hint-box start">
-      <h3>スタート</h3>
-      <ul>
-        <li>息止めて</li>
-        <li>息を止めてください</li>
-        <li>止めて</li>
-        <li>インフレーション</li>
-      </ul>
-    </div>
-    <div class="hint-box stop">
-      <h3>ストップ＆リセット</h3>
-      <ul>
-        <li>楽にして</li>
-        <li>楽にします</li>
-        <li>デフ</li>
-        <li>デフレーション</li>
-      </ul>
+  <!-- Keyword editor -->
+  <div class="keyword-section">
+    <button class="keyword-toggle" id="kwToggle" onclick="toggleKeywordPanel()">
+      <span>音声キーワードを設定</span>
+      <span class="arrow">▼</span>
+    </button>
+    <div class="keyword-panel" id="kwPanel">
+
+      <div class="kw-group start">
+        <h3>スタート</h3>
+        <div class="tag-list" id="startTags"></div>
+        <div class="kw-add">
+          <input type="text" id="startInput" placeholder="キーワードを追加" onkeydown="if(event.key==='Enter')addKeyword('start')">
+          <button onclick="addKeyword('start')">追加</button>
+        </div>
+      </div>
+
+      <div class="kw-group stop">
+        <h3>ストップ</h3>
+        <div class="tag-list" id="stopTags"></div>
+        <div class="kw-add">
+          <input type="text" id="stopInput" placeholder="キーワードを追加" onkeydown="if(event.key==='Enter')addKeyword('stop')">
+          <button onclick="addKeyword('stop')">追加</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <div class="countdown-flash" id="countdownFlash"></div>
 
   <script>
-    // ── State ───────────────────────────────────────────────────────────────
+    // ── Defaults ─────────────────────────────────────────────────────────────
+    const DEFAULT_START = ['息止めて', '息を止めて', '止めて', 'インフレーション'];
+    const DEFAULT_STOP  = ['楽にして', '楽にします', 'デフ', 'デフレーション'];
+
+    // ── Keywords (localStorage) ───────────────────────────────────────────────
+    function loadKeywords() {
+      try {
+        const s = localStorage.getItem('startKeywords');
+        const t = localStorage.getItem('stopKeywords');
+        startKeywords = s ? JSON.parse(s) : [...DEFAULT_START];
+        stopKeywords  = t ? JSON.parse(t) : [...DEFAULT_STOP];
+      } catch (_) {
+        startKeywords = [...DEFAULT_START];
+        stopKeywords  = [...DEFAULT_STOP];
+      }
+    }
+
+    function saveKeywords() {
+      localStorage.setItem('startKeywords', JSON.stringify(startKeywords));
+      localStorage.setItem('stopKeywords',  JSON.stringify(stopKeywords));
+    }
+
+    let startKeywords = [];
+    let stopKeywords  = [];
+    loadKeywords();
+
+    // ── Keyword UI ────────────────────────────────────────────────────────────
+    function renderTags() {
+      renderTagList('startTags', startKeywords, 'start');
+      renderTagList('stopTags',  stopKeywords,  'stop');
+    }
+
+    function renderTagList(containerId, keywords, type) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      keywords.forEach((kw, i) => {
+        const tag = document.createElement('div');
+        tag.className = 'tag';
+        tag.innerHTML = `<span>${kw}</span><button class="tag-remove" onclick="removeKeyword('${type}',${i})" title="削除">✕</button>`;
+        container.appendChild(tag);
+      });
+    }
+
+    function addKeyword(type) {
+      const input = document.getElementById(type === 'start' ? 'startInput' : 'stopInput');
+      const val   = input.value.trim();
+      if (!val) return;
+      if (type === 'start') {
+        if (!startKeywords.includes(val)) startKeywords.push(val);
+      } else {
+        if (!stopKeywords.includes(val)) stopKeywords.push(val);
+      }
+      input.value = '';
+      saveKeywords();
+      renderTags();
+    }
+
+    function removeKeyword(type, index) {
+      if (type === 'start') startKeywords.splice(index, 1);
+      else                  stopKeywords.splice(index, 1);
+      saveKeywords();
+      renderTags();
+    }
+
+    function toggleKeywordPanel() {
+      const btn   = document.getElementById('kwToggle');
+      const panel = document.getElementById('kwPanel');
+      btn.classList.toggle('open');
+      panel.classList.toggle('open');
+    }
+
+    renderTags();
+
+    // ── State ─────────────────────────────────────────────────────────────────
     let isRunning = false;
     let startTime = null;
-    let rafId = null;
+    let rafId     = null;
     let announcedSeconds = new Set();
     let micActive = false;
     let recognition = null;
 
-    const CIRCUMFERENCE = 2 * Math.PI * 114; // 716.28
+    const CIRCUMFERENCE = 2 * Math.PI * 114;
 
-    // ── DOM ─────────────────────────────────────────────────────────────────
-    const elapsedDisplay  = document.getElementById('elapsedDisplay');
-    const ringProgress    = document.getElementById('ringProgress');
-    const statusDot       = document.getElementById('statusDot');
-    const statusText      = document.getElementById('statusText');
-    const transcriptDiv   = document.getElementById('transcriptDisplay');
-    const targetInput     = document.getElementById('targetInput');
-    const btnMic          = document.getElementById('btnMic');
-    const countdownFlash  = document.getElementById('countdownFlash');
+    // ── DOM ───────────────────────────────────────────────────────────────────
+    const elapsedDisplay = document.getElementById('elapsedDisplay');
+    const ringProgress   = document.getElementById('ringProgress');
+    const statusDot      = document.getElementById('statusDot');
+    const statusText     = document.getElementById('statusText');
+    const transcriptDiv  = document.getElementById('transcriptDisplay');
+    const targetInput    = document.getElementById('targetInput');
+    const btnMic         = document.getElementById('btnMic');
+    const countdownFlash = document.getElementById('countdownFlash');
 
-    // ── TTS ─────────────────────────────────────────────────────────────────
-    // iOSはユーザー操作なしにspeakを呼ぶとブロックされる。
-    // ボタンタップ時に無音utteranceで一度アンロックしておく。
+    // ── TTS ───────────────────────────────────────────────────────────────────
     let speechUnlocked = false;
 
     function unlockSpeech() {
@@ -358,7 +461,6 @@
     }
 
     function speak(text) {
-      // iOSではspeechSynthesisがスタックすることがある → resumeで復帰
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
@@ -368,7 +470,7 @@
       window.speechSynthesis.speak(utter);
     }
 
-    // ── Timer ────────────────────────────────────────────────────────────────
+    // ── Timer ─────────────────────────────────────────────────────────────────
     function getTarget() {
       return Math.max(1, parseInt(targetInput.value) || 13);
     }
@@ -376,8 +478,8 @@
     function startTimer() {
       unlockSpeech();
       if (isRunning) return;
-      isRunning     = true;
-      startTime     = performance.now();
+      isRunning        = true;
+      startTime        = performance.now();
       announcedSeconds = new Set();
       setStatus('running', '息止め中…');
       loop();
@@ -404,22 +506,11 @@
       const target  = getTarget();
       const sec     = Math.floor(elapsed);
 
-      // Display
       elapsedDisplay.textContent = elapsed.toFixed(1);
-
-      // Ring progress
-      const progress = Math.min(elapsed / target, 1);
-      const offset   = CIRCUMFERENCE * (1 - progress);
+      const offset = CIRCUMFERENCE * (1 - Math.min(elapsed / target, 1));
       ringProgress.style.strokeDashoffset = offset;
+      ringProgress.classList.toggle('warning', elapsed >= target - 3);
 
-      // Color warning in last 3 s
-      if (elapsed >= target - 3) {
-        ringProgress.classList.add('warning');
-      } else {
-        ringProgress.classList.remove('warning');
-      }
-
-      // Countdown announcement: from (target-3) up to target
       if (elapsed >= target - 3 && sec <= target) {
         if (!announcedSeconds.has(sec)) {
           announcedSeconds.add(sec);
@@ -431,7 +522,7 @@
       rafId = requestAnimationFrame(loop);
     }
 
-    // ── Flash ────────────────────────────────────────────────────────────────
+    // ── Flash ─────────────────────────────────────────────────────────────────
     let flashTimeout = null;
 
     function showFlash(num, isLast) {
@@ -442,37 +533,28 @@
       flashTimeout = setTimeout(hideFlash, 700);
     }
 
-    function hideFlash() {
-      countdownFlash.classList.remove('show');
-    }
+    function hideFlash() { countdownFlash.classList.remove('show'); }
 
-    // ── Status ───────────────────────────────────────────────────────────────
+    // ── Status ────────────────────────────────────────────────────────────────
     function setStatus(state, text) {
-      statusDot.className  = 'status-dot ' + (state || '');
+      statusDot.className    = 'status-dot ' + (state || '');
       statusText.textContent = text;
     }
 
-    // ── Speech Recognition ───────────────────────────────────────────────────
-    const START_KEYWORDS = ['息止めて', '息を止めて', '止めて', 'インフレーション', '止め'];
-    const STOP_KEYWORDS  = ['楽にして', '楽にします', 'デフ', 'デフレーション', '楽に'];
-
+    // ── Speech Recognition ────────────────────────────────────────────────────
     function initRecognition() {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        setStatus('error', '音声認識非対応のブラウザです (Chrome推奨)');
+        setStatus('error', '音声認識非対応のブラウザです (Safari推奨)');
         return null;
       }
 
       const r = new SpeechRecognition();
-      r.lang        = 'ja-JP';
-      r.continuous  = true;
+      r.lang           = 'ja-JP';
+      r.continuous     = true;
       r.interimResults = true;
 
-      r.onstart = () => {
-        setStatus('listening', '音声認識中');
-      };
+      r.onstart = () => setStatus('listening', '音声認識中');
 
       r.onresult = (e) => {
         let transcript = '';
@@ -481,26 +563,21 @@
         }
         transcriptDiv.textContent = transcript;
 
-        // Check keywords
-        if (matchAny(transcript, START_KEYWORDS)) {
+        if (matchAny(transcript, startKeywords)) {
           if (!isRunning) startTimer();
-        } else if (matchAny(transcript, STOP_KEYWORDS)) {
+        } else if (matchAny(transcript, stopKeywords)) {
           if (isRunning) stopTimer();
         }
       };
 
       r.onerror = (e) => {
-        if (e.error === 'no-speech') return; // ignore silence
+        if (e.error === 'no-speech') return;
         setStatus('error', 'エラー: ' + e.error);
       };
 
       r.onend = () => {
-        // Auto-restart if mic should be active
-        if (micActive) {
-          try { r.start(); } catch (_) {}
-        } else {
-          setStatus('', 'マイクを開始してください');
-        }
+        if (micActive) { try { r.start(); } catch (_) {} }
+        else setStatus('', 'マイクを開始してください');
       };
 
       return r;
@@ -511,7 +588,7 @@
     }
 
     function toggleMic() {
-      unlockSpeech(); // iOSアンロック：必ずユーザー操作の中で呼ぶ
+      unlockSpeech();
       if (!micActive) {
         recognition = initRecognition();
         if (!recognition) return;
@@ -528,7 +605,7 @@
       }
     }
 
-    // ── Init ─────────────────────────────────────────────────────────────────
+    // ── Init ──────────────────────────────────────────────────────────────────
     ringProgress.style.strokeDasharray  = CIRCUMFERENCE;
     ringProgress.style.strokeDashoffset = CIRCUMFERENCE;
   </script>
