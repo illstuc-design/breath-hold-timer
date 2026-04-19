@@ -448,6 +448,35 @@
     const btnMic         = document.getElementById('btnMic');
     const countdownFlash = document.getElementById('countdownFlash');
 
+    // ── Audio Context ─────────────────────────────────────────────────────────
+    let audioCtx = null;
+
+    function getAudioCtx() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // iOSはユーザー操作後にresumeが必要
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    // スタート時のチャイム：短い上昇2音
+    function playStartChime() {
+      const ctx = getAudioCtx();
+      const now = ctx.currentTime;
+
+      [[880, 0, 0.08], [1320, 0.1, 0.15]].forEach(([freq, delay, dur]) => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type      = 'sine';
+        osc.frequency.setValueAtTime(freq, now + delay);
+        gain.gain.setValueAtTime(0.5, now + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+        osc.start(now + delay);
+        osc.stop(now + delay + dur + 0.05);
+      });
+    }
+
     // ── TTS ───────────────────────────────────────────────────────────────────
     let speechUnlocked = false;
 
@@ -482,6 +511,7 @@
       startTime        = performance.now();
       announcedSeconds = new Set();
       setStatus('running', '息止め中…');
+      playStartChime();
       loop();
     }
 
