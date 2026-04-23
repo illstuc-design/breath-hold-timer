@@ -541,6 +541,25 @@
       });
     }
 
+    // ストップ時のチャイム：下降2音（スタートの逆）
+    function playStopChime() {
+      const ctx = getAudioCtx();
+      const now = ctx.currentTime;
+
+      [[1320, 0, 0.08], [880, 0.12, 0.2]].forEach(([freq, delay, dur]) => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type      = 'sine';
+        osc.frequency.setValueAtTime(freq, now + delay);
+        gain.gain.setValueAtTime(0.85, now + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+        osc.start(now + delay);
+        osc.stop(now + delay + dur + 0.05);
+      });
+    }
+
     // ── TTS ───────────────────────────────────────────────────────────────────
     let speechUnlocked = false;
 
@@ -621,6 +640,7 @@
     function stopTimer() {
       unlockSpeech();
       if (!isRunning && startTime === null) return;
+      playStopChime();
       isRunning = false;
       if (rafId) cancelAnimationFrame(rafId);
       rafId     = null;
