@@ -99,32 +99,95 @@
     .status-text { font-size: 0.875rem; color: #7d8590; }
     .transcript { font-size: 0.8rem; color: #4c5159; max-width: 280px; text-align: center; min-height: 1.2em; }
 
-    /* Settings row */
-    .settings {
+    /* Picker */
+    .picker-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .picker-label {
+      font-size: 0.75rem;
+      color: #7d8590;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .picker-wrap {
+      position: relative;
+      width: 130px;
+      height: 160px;
+    }
+
+    .picker-wrap::before,
+    .picker-wrap::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 56px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .picker-wrap::before {
+      top: 0;
+      background: linear-gradient(to bottom, #0d1117 0%, transparent 100%);
+    }
+    .picker-wrap::after {
+      bottom: 0;
+      background: linear-gradient(to top, #0d1117 0%, transparent 100%);
+    }
+
+    .picker-highlight {
+      position: absolute;
+      top: 50%;
+      left: 0; right: 0;
+      height: 52px;
+      transform: translateY(-50%);
+      border-top: 1px solid #58a6ff55;
+      border-bottom: 1px solid #58a6ff55;
+      background: #58a6ff0d;
+      border-radius: 8px;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .picker-scroll {
+      height: 100%;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .picker-scroll::-webkit-scrollbar { display: none; }
+
+    .picker-item {
+      height: 52px;
       display: flex;
       align-items: center;
-      gap: 16px;
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 12px;
-      padding: 16px 24px;
+      justify-content: center;
+      scroll-snap-align: center;
+      font-size: 2rem;
+      font-weight: 200;
+      color: #3d444d;
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.15s;
+      gap: 4px;
     }
 
-    .settings label { font-size: 0.875rem; color: #7d8590; }
-
-    .settings input[type="number"] {
-      width: 72px;
-      padding: 6px 10px;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 6px;
+    .picker-item.selected {
       color: #e6edf3;
-      font-size: 1rem;
-      text-align: center;
+      font-size: 2.6rem;
     }
 
-    .settings input[type="number"]:focus { outline: none; border-color: #58a6ff; }
-    .settings span { font-size: 0.875rem; color: #7d8590; }
+    .picker-item .unit {
+      font-size: 0.85rem;
+      color: #7d8590;
+      align-self: flex-end;
+      padding-bottom: 8px;
+    }
 
     /* Buttons */
     .buttons { display: flex; gap: 12px; }
@@ -311,10 +374,12 @@
     <div class="transcript" id="transcriptDisplay"></div>
   </div>
 
-  <div class="settings">
-    <label for="targetInput">設定時間</label>
-    <input type="number" id="targetInput" value="13" min="1" max="999">
-    <span>秒</span>
+  <div class="picker-section">
+    <div class="picker-label">設定時間</div>
+    <div class="picker-wrap">
+      <div class="picker-highlight"></div>
+      <div class="picker-scroll" id="pickerScroll"></div>
+    </div>
   </div>
 
   <div class="buttons">
@@ -444,7 +509,6 @@
     const statusDot      = document.getElementById('statusDot');
     const statusText     = document.getElementById('statusText');
     const transcriptDiv  = document.getElementById('transcriptDisplay');
-    const targetInput    = document.getElementById('targetInput');
     const btnMic         = document.getElementById('btnMic');
     const countdownFlash = document.getElementById('countdownFlash');
 
@@ -470,7 +534,7 @@
         gain.connect(ctx.destination);
         osc.type      = 'sine';
         osc.frequency.setValueAtTime(freq, now + delay);
-        gain.gain.setValueAtTime(0.5, now + delay);
+        gain.gain.setValueAtTime(0.85, now + delay);
         gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
         osc.start(now + delay);
         osc.stop(now + delay + dur + 0.05);
@@ -500,8 +564,47 @@
     }
 
     // ── Timer ─────────────────────────────────────────────────────────────────
+    // ── Picker ────────────────────────────────────────────────────────────────
+    const PICKER_MIN = 1, PICKER_MAX = 30, PICKER_DEFAULT = 10;
+    const ITEM_H = 52;
+    let pickerValue = PICKER_DEFAULT;
+
+    function initPicker() {
+      const scroll = document.getElementById('pickerScroll');
+      scroll.innerHTML = '';
+
+      // 上パディング
+      const topPad = document.createElement('div');
+      topPad.style.height = ITEM_H + 'px';
+      scroll.appendChild(topPad);
+
+      for (let i = PICKER_MIN; i <= PICKER_MAX; i++) {
+        const div = document.createElement('div');
+        div.className = 'picker-item' + (i === PICKER_DEFAULT ? ' selected' : '');
+        div.dataset.value = i;
+        div.innerHTML = `${i}<span class="unit">秒</span>`;
+        scroll.appendChild(div);
+      }
+
+      // 下パディング
+      const botPad = document.createElement('div');
+      botPad.style.height = ITEM_H + 'px';
+      scroll.appendChild(botPad);
+
+      // デフォルト位置
+      scroll.scrollTop = (PICKER_DEFAULT - PICKER_MIN) * ITEM_H;
+
+      scroll.addEventListener('scroll', () => {
+        const idx = Math.round(scroll.scrollTop / ITEM_H);
+        pickerValue = idx + PICKER_MIN;
+        document.querySelectorAll('.picker-item').forEach((el, i) => {
+          el.classList.toggle('selected', i === idx);
+        });
+      });
+    }
+
     function getTarget() {
-      return Math.max(1, parseInt(targetInput.value) || 13);
+      return pickerValue;
     }
 
     function startTimer() {
@@ -638,6 +741,7 @@
     // ── Init ──────────────────────────────────────────────────────────────────
     ringProgress.style.strokeDasharray  = CIRCUMFERENCE;
     ringProgress.style.strokeDashoffset = CIRCUMFERENCE;
+    initPicker();
   </script>
 </body>
 </html>
