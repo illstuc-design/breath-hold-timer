@@ -722,7 +722,7 @@
           transcript += e.results[i][0].transcript;
         }
         transcriptDiv.textContent = transcript;
-        lastTranscript = transcript; // 常に最新を保持
+        if (transcript.trim()) lastTranscript = transcript; // 空でないときだけ更新
 
         if (matchAny(transcript, startKeywords)) {
           if (!isRunning) startTimer(transcript, findKeyword(transcript, startKeywords));
