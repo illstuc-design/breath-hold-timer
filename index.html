@@ -421,8 +421,8 @@
 
   <script>
     // ── Defaults ─────────────────────────────────────────────────────────────
-    const DEFAULT_START = ['息止めて', '息を止めて', '止めて', 'インフレーション'];
-    const DEFAULT_STOP  = ['楽にして', '楽にします', 'デフ', 'デフレーション'];
+    const DEFAULT_START = ['息止めて', '息を止めて', '止めて', '息止めます', '息を止めてください', '息を止めます'];
+    const DEFAULT_STOP  = ['楽にして', '楽にします', '楽にどうぞ', '楽に', 'ストップ'];
 
     // ── Keywords (localStorage) ───────────────────────────────────────────────
     function loadKeywords() {
@@ -626,7 +626,7 @@
       return pickerValue;
     }
 
-    function startTimer() {
+    function startTimer(transcript, keyword) {
       unlockSpeech();
       if (isRunning) return;
       isRunning        = true;
@@ -635,9 +635,12 @@
       setStatus('running', '息止め中…');
       playStartChime();
       loop();
+      // ログ送信（音声 or 手動を区別）
+      const method = transcript ? '音声' : '手動';
+      sendLog('スタート', transcript || '', keyword || '', method);
     }
 
-    function stopTimer() {
+    function stopTimer(transcript, keyword) {
       unlockSpeech();
       if (!isRunning && startTime === null) return;
       playStopChime();
@@ -651,6 +654,9 @@
       ringProgress.classList.remove('warning');
       hideFlash();
       setStatus(micActive ? 'listening' : '', micActive ? '音声認識中' : 'マイクを開始してください');
+      // ログ送信
+      const method = transcript ? '音声' : '手動';
+      sendLog('ストップ', transcript || '', keyword || '', method);
     }
 
     function loop() {
@@ -717,9 +723,9 @@
         transcriptDiv.textContent = transcript;
 
         if (matchAny(transcript, startKeywords)) {
-          if (!isRunning) startTimer();
+          if (!isRunning) startTimer(transcript, findKeyword(transcript, startKeywords));
         } else if (matchAny(transcript, stopKeywords)) {
-          if (isRunning) stopTimer();
+          if (isRunning) stopTimer(transcript, findKeyword(transcript, stopKeywords));
         }
       };
 
@@ -738,6 +744,22 @@
 
     function matchAny(text, keywords) {
       return keywords.some(kw => text.includes(kw));
+    }
+
+    function findKeyword(text, keywords) {
+      return keywords.find(kw => text.includes(kw)) || 'なし';
+    }
+
+    // ── ロギング ──────────────────────────────────────────────────────────────
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyPyh-XRu0UvsAD2kar3fwTyo8exZsMLQwgYQeAdw-1qN5tYlGBqmDFhRtd5CoAeexq/exec';
+
+    function sendLog(event, transcript, keyword, method) {
+      fetch(GAS_URL, {
+        method: 'POST',
+        mode:   'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, transcript, keyword, method })
+      }).catch(() => {}); // エラーは無視（ロギング失敗でアプリを止めない）
     }
 
     function toggleMic() {
