@@ -385,7 +385,7 @@
   <div class="buttons">
     <button class="btn-mic" id="btnMic" onclick="toggleMic()">マイク ON</button>
     <button class="btn-start" onclick="startTimer()">スタート</button>
-    <button class="btn-stop" onclick="stopTimer()">ストップ</button>
+    <button class="btn-stop" onclick="stopTimer(lastTranscript, null, true)">ストップ</button>
   </div>
 
   <!-- Keyword editor -->
@@ -499,6 +499,7 @@
     let rafId     = null;
     let announcedSeconds = new Set();
     let micActive = false;
+    let lastTranscript = ''; // 最後に認識したテキストを保持
     let recognition = null;
 
     const CIRCUMFERENCE = 2 * Math.PI * 114;
@@ -640,7 +641,7 @@
       sendLog('スタート', transcript || '', keyword || '', method);
     }
 
-    function stopTimer(transcript, keyword) {
+    function stopTimer(transcript, keyword, isManual) {
       unlockSpeech();
       if (!isRunning && startTime === null) return;
       playStopChime();
@@ -654,8 +655,8 @@
       ringProgress.classList.remove('warning');
       hideFlash();
       setStatus(micActive ? 'listening' : '', micActive ? '音声認識中' : 'マイクを開始してください');
-      // ログ送信
-      const method = transcript ? '音声' : '手動';
+      // ログ送信（手動の場合は最後の認識テキストも記録）
+      const method = isManual ? '手動' : '音声';
       sendLog('ストップ', transcript || '', keyword || '', method);
     }
 
@@ -721,6 +722,7 @@
           transcript += e.results[i][0].transcript;
         }
         transcriptDiv.textContent = transcript;
+        lastTranscript = transcript; // 常に最新を保持
 
         if (matchAny(transcript, startKeywords)) {
           if (!isRunning) startTimer(transcript, findKeyword(transcript, startKeywords));
