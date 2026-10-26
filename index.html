@@ -419,7 +419,22 @@
 
   <div class="countdown-flash" id="countdownFlash"></div>
 
+  <div id="appVersion" style="text-align:center;font-size:11px;color:#888;margin:18px 0 10px;"></div>
+
   <script>
+    // ── 版（どの版が動いているか画面とログで確認するため。更新したら書き換える） ──
+    const APP_VERSION = '10/26b';
+
+    // ── 端末の種類（ログで端末を区別するため。iPadのSafariはMacと名乗るのでタッチ有無で判定） ──
+    const DEVICE = (() => {
+      const ua = navigator.userAgent;
+      if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iPad';
+      if (/iPhone/.test(ua)) return 'iPhone';
+      if (/Android/.test(ua)) return 'Android';
+      return 'PC';
+    })();
+    document.getElementById('appVersion').textContent = 'ver ' + APP_VERSION + '（' + DEVICE + '）';
+
     // ── Defaults ─────────────────────────────────────────────────────────────
     const DEFAULT_START = ['息止めて', '息を止めて', '止めて', '息止めます', '息を止めてください', '息を止めます'];
     const DEFAULT_STOP  = ['楽にして', '楽にします', '楽にどうぞ', '楽に', 'ストップ'];
@@ -810,7 +825,7 @@
         method: 'POST',
         mode:   'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event, transcript, keyword, method })
+        body: JSON.stringify({ event, transcript, keyword, method, device: DEVICE, version: APP_VERSION })
       }).catch(() => {}); // エラーは無視（ロギング失敗でアプリを止めない）
     }
 
