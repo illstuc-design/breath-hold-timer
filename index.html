@@ -423,7 +423,7 @@
 
   <script>
     // ── 版（どの版が動いているか画面とログで確認するため。更新したら書き換える） ──
-    const APP_VERSION = '10/26b';
+    const APP_VERSION = '10/27b';
 
     // ── 端末の種類（ログで端末を区別するため。iPadのSafariはMacと名乗るのでタッチ有無で判定） ──
     const DEVICE = (() => {
@@ -515,6 +515,13 @@
     let announcedSeconds = new Set();
     let micActive = false;
     let lastTranscript = ''; // 最後に認識したテキストを保持
+    let lastRaw   = '';      // 直近に受け取った認識テキスト（そのまま）
+    let consumed  = '';      // すでに判定に使った認識テキスト（スタート/ストップした時点のもの）
+    let lastStopAt = 0;      // 直近のストップ時刻（直後の誤スタート防止）
+
+    // 「楽に」が別の言葉に聞き間違えられても止められるよう、息止め中だけ使う補助の合図。
+    // （ログでは「楽にします」→「止めます」、「楽にしてください」→「確認してください」が多数）
+    const STOP_FALLBACKS = ['止めます', 'してください', 'します'];
     let recognition = null;
 
     const CIRCUMFERENCE = 2 * Math.PI * 114;
@@ -654,7 +661,7 @@
       // ログ送信（音声 or 手動を区別）
       const method = transcript ? '音声' : '手動';
       sendLog('スタート', transcript || '', keyword || '', method);
-      resetRecognition('スタート後');
+      consumed = lastRaw; // この時点までの認識テキストは使用済み
     }
 
     function stopTimer(transcript, keyword, isManual) {
@@ -674,7 +681,8 @@
       // ログ送信（手動の場合は最後の認識テキストも記録）
       const method = isManual ? '手動' : '音声';
       sendLog('ストップ', transcript || '', keyword || '', method);
-      resetRecognition('ストップ後');
+      consumed   = lastRaw; // この時点までの認識テキストは使用済み
+      lastStopAt = performance.now();
     }
 
     function loop() {
@@ -731,16 +739,7 @@
       r.continuous     = true;
       r.interimResults = true;
 
-      r.onstart = () => {
-        // 息止め中にリセットした場合は「息止め中…」の表示を消さない
-        if (isRunning) setStatus('running', '息止め中…');
-        else setStatus('listening', '音声認識中');
-        if (resetStartedAt !== null) {
-          const ms = Math.round(performance.now() - resetStartedAt);
-          resetStartedAt = null;
-          sendLog('リセット', '復帰 ' + ms + 'ms', resetReason, '自動');
-        }
-      };
+      r.onstart = () => setStatus(isRunning ? 'running' : 'listening', isRunning ? '息止め中…' : '音声認識中');
 
       r.onresult = (e) => {
         let transcript = '';
@@ -749,11 +748,23 @@
         }
         transcriptDiv.textContent = transcript;
         if (transcript.trim()) lastTranscript = transcript; // 空でないときだけ更新
+        lastRaw = transcript;
 
-        if (matchAny(transcript, startKeywords)) {
-          if (!isRunning) startTimer(transcript, findKeyword(transcript, startKeywords));
-        } else if (matchAny(transcript, stopKeywords)) {
-          if (isRunning) stopTimer(transcript, findKeyword(transcript, stopKeywords));
+        // すでに判定に使った部分（例：スタート時の「止めて」）を除いた、新しく聞こえた部分だけで判定する。
+        // →「止めて…楽にして」が同じ文に入っていても、止める合図を見逃さない／止めた直後に誤スタートしない。
+        const fresh = (consumed && transcript.startsWith(consumed)) ? transcript.slice(consumed.length) : transcript;
+
+        if (!isRunning) {
+          if (performance.now() - lastStopAt > 1500 && matchAny(fresh, startKeywords)) {
+            startTimer(transcript, findKeyword(fresh, startKeywords));
+          }
+        } else if (performance.now() - startTime >= stopGuardMs()) {
+          // スタートの言葉の続きや、画面のカウント読み上げの混入を避けるため、開始直後は止める判定をしない
+          if (matchAny(fresh, stopKeywords)) {
+            stopTimer(transcript, findKeyword(fresh, stopKeywords));
+          } else if (matchAny(fresh, STOP_FALLBACKS)) {
+            stopTimer(transcript, '補助:' + findKeyword(fresh, STOP_FALLBACKS));
+          }
         }
       };
 
@@ -771,43 +782,8 @@
       return r;
     }
 
-    // ── 音声認識のリセット（iPadOS 27対策） ─────────────────────────────────
-    // iPadでは話し方によって、認識が1つの発話の途中で固まり、以降の声を拾わなくなる。
-    // マイクOFF→ONで直るため、スタート/ストップの直後に同じこと（新しく作り直す）を自動で行う。
-    // 復帰までの時間は「リセット」としてログに残す。
-    let resetStartedAt = null;
-    let resetReason    = '';
-
-    function resetRecognition(reason) {
-      if (!micActive) return;
-      const old = recognition;
-      recognition = null;
-      if (old) {
-        old.onstart = old.onresult = old.onerror = old.onend = null;
-        try { old.abort(); } catch (_) {}
-      }
-      resetStartedAt = performance.now();
-      resetReason    = reason;
-      transcriptDiv.textContent = '';
-      startFreshRecognition(0);
-    }
-
-    function startFreshRecognition(attempt) {
-      setTimeout(() => {
-        // 待っている間にマイクOFF／手動でマイクON済みなら何もしない
-        if (!micActive || recognition) return;
-        const r = initRecognition();
-        if (!r) return;
-        recognition = r;
-        try {
-          r.start();
-        } catch (_) {
-          recognition = null;
-          if (attempt < 5) startFreshRecognition(attempt + 1);
-          else setStatus('error', '音声認識を再開できません。マイクOFF→ONしてください');
-        }
-      }, attempt === 0 ? 150 : 300);
-    }
+    // 開始から何ミリ秒は「止める」判定をしないか（短い設定でも極端に長くならないよう上限つき）
+    function stopGuardMs() { return Math.min(3000, getTarget() * 400); }
 
     function matchAny(text, keywords) {
       return keywords.some(kw => text.includes(kw));
