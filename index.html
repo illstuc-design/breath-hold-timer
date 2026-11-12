@@ -423,7 +423,7 @@
 
   <script>
     // ── 版（どの版が動いているか画面とログで確認するため。更新したら書き換える） ──
-    const APP_VERSION = '11/12b';
+    const APP_VERSION = '11/12c';
 
     // ── 端末の種類（ログで端末を区別するため。iPadのSafariはMacと名乗るのでタッチ有無で判定） ──
     const DEVICE = (() => {
@@ -540,6 +540,7 @@
 
     function getAudioCtx() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      decodeAllNumbers();
       // iOSはユーザー操作後にresumeが必要
       if (audioCtx.state === 'suspended') audioCtx.resume();
       return audioCtx;
@@ -583,45 +584,63 @@
       });
     }
 
-    // ── TTS ───────────────────────────────────────────────────────────────────
-    let speechUnlocked = false;
+    // ── 秒数の声（録音した音声ファイルを鳴らす） ─────────────────────────────
+    // iOS 27では「読み上げ機能(speechSynthesis)」を使うと音声認識が聞こえなくなり、
+    // 逆に音声認識を作り直すと読み上げの声が消える。両立できないので読み上げ機能は一切使わない。
+    // 数字の声は audio/1.m4a〜30.m4a を、チャイムと同じ仕組み(Web Audio)で鳴らす。
+    const NUM_MAX    = 30;
+    const numRaw     = {};  // 読み込んだままの音声データ
+    const numBuffers = {};  // すぐ鳴らせる形にしたもの
 
-    function unlockSpeech() {
-      if (speechUnlocked) return;
-      speechUnlocked = true;
-      const silent = new SpeechSynthesisUtterance(' ');
-      silent.volume = 0;
-      silent.lang   = 'ja-JP';
-      window.speechSynthesis.speak(silent);
-    }
-
-    // iOS 27では、秒数を読み上げると音声認識が耳をふさがれたまま戻らない
-    // （ログ：10秒を超える息止めは声で止まったのが46回中1回、10秒以内は13回中9回）。
-    // そこで最後の数字を読み終えたときに1回だけ、聞き取りを新しく作り直す（マイクOFF→ONの自動化）。
-    // ※数字ごとに作り直すと、次の読み上げの声が消える／小さくなる（11/12版で発生）ので、途中では触らない。
-    let afterSpeakTimer = null;
-    function speak(text, isLast) {
-      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang  = 'ja-JP';
-      utter.rate  = 1.0;
-      utter.pitch = 1.0;
-      if (isLast) {
-        let fired = false;
-        const done = () => {
-          if (fired) return;
-          fired = true;
-          clearTimeout(afterSpeakTimer);
-          restartRecognition('読み上げ後');
-        };
-        utter.onend = done;
-        utter.onerror = done;
-        clearTimeout(afterSpeakTimer);
-        afterSpeakTimer = setTimeout(done, 1500); // 終わりの合図が来ない時の保険
+    function preloadNumbers() {
+      for (let i = 1; i <= NUM_MAX; i++) {
+        fetch('audio/' + i + '.m4a')
+          .then(res => res.ok ? res.arrayBuffer() : Promise.reject())
+          .then(buf => { numRaw[i] = buf; decodeNumber(i); })
+          .catch(() => {});
       }
-      window.speechSynthesis.speak(utter);
     }
+
+    function decodeNumber(i) {
+      if (!audioCtx || !numRaw[i] || numBuffers[i]) return;
+      try {
+        audioCtx.decodeAudioData(numRaw[i].slice(0), buf => { numBuffers[i] = buf; }, () => {});
+      } catch (_) {}
+    }
+
+    function decodeAllNumbers() {
+      for (let i = 1; i <= NUM_MAX; i++) decodeNumber(i);
+    }
+
+    function speak(num, isLast) {
+      const ctx = getAudioCtx();
+      const buf = numBuffers[num];
+      if (buf) {
+        const src  = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        src.buffer = buf;
+        gain.gain.value = 1.0;
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        src.start();
+      } else {
+        // 音声ファイルがまだ読み込めていない時は「ピッ」（最後は長め）で代用
+        const now  = ctx.currentTime;
+        const dur  = isLast ? 0.5 : 0.12;
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(isLast ? 1320 : 1100, now);
+        gain.gain.setValueAtTime(0.85, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.start(now);
+        osc.stop(now + dur + 0.05);
+      }
+    }
+
+    preloadNumbers();
 
     // ── Timer ─────────────────────────────────────────────────────────────────
     // ── Picker ────────────────────────────────────────────────────────────────
@@ -668,7 +687,7 @@
     }
 
     function startTimer(transcript, keyword) {
-      unlockSpeech();
+      getAudioCtx(); // 画面を押した時に音を鳴らせる状態にする
       if (isRunning) return;
       isRunning        = true;
       startTime        = performance.now();
@@ -683,7 +702,7 @@
     }
 
     function stopTimer(transcript, keyword, isManual) {
-      unlockSpeech();
+      getAudioCtx(); // 画面を押した時に音を鳴らせる状態にする
       if (!isRunning && startTime === null) return;
       playStopChime();
       isRunning = false;
@@ -717,7 +736,7 @@
       if (elapsed >= target - 3 && sec <= target) {
         if (!announcedSeconds.has(sec)) {
           announcedSeconds.add(sec);
-          speak(String(sec), sec === target);
+          if (sec >= 1) speak(sec, sec === target);
           showFlash(sec, sec === target);
         }
       }
@@ -868,7 +887,7 @@
     }
 
     function toggleMic() {
-      unlockSpeech();
+      getAudioCtx(); // 画面を押した時に音を鳴らせる状態にする
       if (!micActive) {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { setStatus('error', '音声認識非対応のブラウザです (Safari推奨)'); return; }
