@@ -423,7 +423,7 @@
 
   <script>
     // ── 版（どの版が動いているか画面とログで確認するため。更新したら書き換える） ──
-    const APP_VERSION = '11/11';
+    const APP_VERSION = '11/12';
 
     // ── 端末の種類（ログで端末を区別するため。iPadのSafariはMacと名乗るのでタッチ有無で判定） ──
     const DEVICE = (() => {
@@ -519,12 +519,8 @@
     let consumed  = '';      // すでに判定に使った認識テキスト（スタート/ストップした時点のもの）
     let lastStopAt = 0;      // 直近のストップ時刻（直後の誤スタート防止）
 
-    // 「楽に」が別の言葉に聞き間違えられても止められるよう、息止め中だけ使う補助の合図。
-    // iOS 27のiPadでは「楽にします」が「はい止めます」「努めます」「楽」などに化ける（11/11のログ）。
-    // 「します」「ください」だけは、スタートの言葉の続き（お願いします／止めてください）で誤って止まったので使わない。
-    const STOP_FALLBACKS = ['止めます', 'めます', '楽', 'らく', 'ラク', 'にします', 'にして'];
+    // ※「はい止めます」はスタート後の声かけ（止める合図ではない）。11/11版で補助の合図にして4秒で止まったので廃止。
     let recognition = null;
-    let lastResultAt  = 0;   // 最後に認識結果が届いた時刻（固まり検知用）
     let lastRestartAt = 0;   // 最後に認識を作り直した時刻
     let restartReason = '';  // 作り直した理由（ログ用）
 
@@ -599,13 +595,28 @@
       window.speechSynthesis.speak(silent);
     }
 
-    function speak(text) {
+    // iOS 27では、秒数を読み上げると音声認識が耳をふさがれたまま戻らない
+    // （ログ：10秒を超える息止めは声で止まったのが46回中1回、10秒以内は13回中9回）。
+    // そこで読み上げが終わるたびに、聞き取りを新しく作り直す（マイクOFF→ONの自動化）。
+    let afterSpeakTimer = null;
+    function speak(text, isLast) {
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang  = 'ja-JP';
       utter.rate  = 1.0;
       utter.pitch = 1.0;
+      const reason = isLast ? '読み上げ後' : '';
+      const done = () => {
+        clearTimeout(afterSpeakTimer);
+        afterSpeakTimer = setTimeout(() => {
+          if (!window.speechSynthesis.speaking) restartRecognition(reason);
+        }, 100);
+      };
+      utter.onend = done;
+      utter.onerror = done;
+      clearTimeout(afterSpeakTimer);
+      afterSpeakTimer = setTimeout(done, 1500); // 終わりの合図が来ない時の保険
       window.speechSynthesis.speak(utter);
     }
 
@@ -665,8 +676,7 @@
       // ログ送信（音声 or 手動を区別）
       const method = transcript ? '音声' : '手動';
       sendLog('スタート', transcript || '', keyword || '', method);
-      // iOS 27では、続けて聞き取らせると2回目の言葉が届かなくなるので、ここで聞き取りを新しくする
-      restartRecognition('スタート後');
+      consumed = lastRaw; // この時点までの認識テキストは使用済み
     }
 
     function stopTimer(transcript, keyword, isManual) {
@@ -686,8 +696,8 @@
       // ログ送信（手動の場合は最後の認識テキストも記録）
       const method = isManual ? '手動' : '音声';
       sendLog('ストップ', transcript || '', keyword || '', method);
+      consumed   = lastRaw; // この時点までの認識テキストは使用済み
       lastStopAt = performance.now();
-      restartRecognition('ストップ後');
     }
 
     function loop() {
@@ -704,7 +714,7 @@
       if (elapsed >= target - 3 && sec <= target) {
         if (!announcedSeconds.has(sec)) {
           announcedSeconds.add(sec);
-          speak(String(sec));
+          speak(String(sec), sec === target);
           showFlash(sec, sec === target);
         }
       }
@@ -754,7 +764,6 @@
       };
 
       r.onresult = (e) => {
-        lastResultAt = performance.now();
         let transcript = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
           transcript += e.results[i][0].transcript;
@@ -775,8 +784,6 @@
           // スタートの言葉の続きや、画面のカウント読み上げの混入を避けるため、開始直後は止める判定をしない
           if (matchAny(fresh, stopKeywords)) {
             stopTimer(transcript, findKeyword(fresh, stopKeywords));
-          } else if (matchAny(fresh, STOP_FALLBACKS)) {
-            stopTimer(transcript, '補助:' + findKeyword(fresh, STOP_FALLBACKS));
           }
         }
       };
@@ -814,7 +821,6 @@
       lastRaw  = '';
       transcriptDiv.textContent = '';
       lastRestartAt = performance.now();
-      lastResultAt  = lastRestartAt;
       if (reason) restartReason = reason;
       startFresh(0);
     }
@@ -835,18 +841,8 @@
       }, attempt === 0 ? 150 : 300);
     }
 
-    // 固まり見張り番：息止め中に4秒、待機中に10秒、何も届かなければ作り直す
-    setInterval(() => {
-      if (!micActive || !recognition) return;
-      const now  = performance.now();
-      const wait = isRunning ? 4000 : 10000;
-      if (now - lastResultAt > wait && now - lastRestartAt > wait) {
-        restartRecognition(isRunning ? '無音(息止め中)' : '');
-      }
-    }, 1000);
-
-    // 開始から何ミリ秒は「止める」判定をしないか（スタートの言葉の続きを拾わないため。1.5〜3秒）
-    function stopGuardMs() { return Math.max(1500, Math.min(3000, getTarget() * 400)); }
+    // 開始から何ミリ秒は「止める」判定をしないか（短い設定でも極端に長くならないよう上限つき）
+    function stopGuardMs() { return Math.min(3000, getTarget() * 400); }
 
     function matchAny(text, keywords) {
       return keywords.some(kw => text.includes(kw));
