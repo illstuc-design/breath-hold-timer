@@ -423,7 +423,7 @@
 
   <script>
     // ── 版（どの版が動いているか画面とログで確認するため。更新したら書き換える） ──
-    const APP_VERSION = '11/12';
+    const APP_VERSION = '11/12b';
 
     // ── 端末の種類（ログで端末を区別するため。iPadのSafariはMacと名乗るのでタッチ有無で判定） ──
     const DEVICE = (() => {
@@ -597,7 +597,8 @@
 
     // iOS 27では、秒数を読み上げると音声認識が耳をふさがれたまま戻らない
     // （ログ：10秒を超える息止めは声で止まったのが46回中1回、10秒以内は13回中9回）。
-    // そこで読み上げが終わるたびに、聞き取りを新しく作り直す（マイクOFF→ONの自動化）。
+    // そこで最後の数字を読み終えたときに1回だけ、聞き取りを新しく作り直す（マイクOFF→ONの自動化）。
+    // ※数字ごとに作り直すと、次の読み上げの声が消える／小さくなる（11/12版で発生）ので、途中では触らない。
     let afterSpeakTimer = null;
     function speak(text, isLast) {
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();
@@ -606,17 +607,19 @@
       utter.lang  = 'ja-JP';
       utter.rate  = 1.0;
       utter.pitch = 1.0;
-      const reason = isLast ? '読み上げ後' : '';
-      const done = () => {
+      if (isLast) {
+        let fired = false;
+        const done = () => {
+          if (fired) return;
+          fired = true;
+          clearTimeout(afterSpeakTimer);
+          restartRecognition('読み上げ後');
+        };
+        utter.onend = done;
+        utter.onerror = done;
         clearTimeout(afterSpeakTimer);
-        afterSpeakTimer = setTimeout(() => {
-          if (!window.speechSynthesis.speaking) restartRecognition(reason);
-        }, 100);
-      };
-      utter.onend = done;
-      utter.onerror = done;
-      clearTimeout(afterSpeakTimer);
-      afterSpeakTimer = setTimeout(done, 1500); // 終わりの合図が来ない時の保険
+        afterSpeakTimer = setTimeout(done, 1500); // 終わりの合図が来ない時の保険
+      }
       window.speechSynthesis.speak(utter);
     }
 
@@ -869,10 +872,14 @@
       if (!micActive) {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { setStatus('error', '音声認識非対応のブラウザです (Safari推奨)'); return; }
+        // 前の版と同じく、ボタンを押したその場で聞き取りを始める（iPadは押した瞬間でないと音の扱いが変わるため）
+        recognition = initRecognition();
+        if (!recognition) return;
         micActive = true;
         btnMic.textContent = 'マイク OFF';
         btnMic.classList.add('active');
-        restartRecognition('');
+        consumed = ''; lastRaw = '';
+        try { recognition.start(); } catch (_) {}
         checkForUpdate();
       } else {
         micActive = false;
